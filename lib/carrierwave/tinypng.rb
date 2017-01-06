@@ -19,7 +19,24 @@ module CarrierWave
       attr_accessor :key
     end
 
+    def resize(*options)
+      process_as_tinypng(Hash[options]) do |input, output, options|
+        source = Tinify.from_file(input)
+        resized = source.resize(options)
+        resized.to_file(output)
+      end
+    end
+
     def tinypng
+      process_as_tinypng do |input, output, options|
+        source = Tinify.from_file(input)
+        source.to_file(output)
+      end
+    end
+
+    private
+
+    def process_as_tinypng(options = {}, &block)
       cache_stored_file! if !cached?
 
       input = current_path
@@ -29,9 +46,8 @@ module CarrierWave
       Tinify.validate!
 
       begin
-        source = Tinify.from_file(input)
-        source.to_file(output)
-      rescue => e
+        block.call(input, output, options)
+      rescue StandardError => e
         Rails.logger.error(
           I18n.translate(
             :'errors.messages.tinypng_processing_error',
